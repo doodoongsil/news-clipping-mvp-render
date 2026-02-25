@@ -224,63 +224,81 @@ def main() -> None:
 
     url = st.text_input("뉴스/목록 페이지 URL", placeholder="https://contents.premium.naver.com/anjang/anjangram")
 
-if st.button("가져오고 저장하기", type="primary"):
-    if not url:
-        st.warning("먼저 URL을 입력해 주세요.")
-    else:
-        try:
-            html = fetch_html(url)
+def main() -> None:
+    init_db()
 
-            # 1) 일반 번호목록 파서 먼저 시도
-            page_title, rows = extract_numbered_items_and_links(html, url)
+    if "new_ids" not in st.session_state:
+        st.session_state.new_ids = set()
 
-            if rows:
-                new_ids = save_records(url, page_title, rows)
-                st.session_state.new_ids = set(new_ids)
-                st.success(
-                    f"총 {len(rows)}개 추출, 신규 {len(new_ids)}개 저장 완료 "
-                    f"(중복 {len(rows) - len(new_ids)}개)"
-                )
-            else:
-                # 2) 네이버 프리미엄 목록 파서 시도
-                naver_posts = extract_naver_premium_posts(html, url)
+    st.title("📰 뉴스 클리핑 대시보드")
+    st.caption("URL의 HTML을 가져와 제목/번호목록/기사 링크를 추출하고 SQLite에 저장합니다.")
 
-                if naver_posts:
-                    new_ids_all = []
-                    for date_iso, title, link in naver_posts:
-                        new_ids = save_records(url, title, [(date_iso, link)])
-                        new_ids_all.extend(new_ids)
+    url = st.text_input(
+        "뉴스/목록 페이지 URL",
+        placeholder="https://contents.premium.naver.com/anjang/anjangram"
+    )
 
-                    st.session_state.new_ids = set(new_ids_all)
+    if st.button("가져오고 저장하기", type="primary"):
+        if not url:
+            st.warning("먼저 URL을 입력해 주세요.")
+        else:
+            try:
+                html = fetch_html(url)
+
+                # 1) 일반 번호목록 파서 먼저 시도
+                page_title, rows = extract_numbered_items_and_links(html, url)
+
+                if rows:
+                    new_ids = save_records(url, page_title, rows)
+                    st.session_state.new_ids = set(new_ids)
                     st.success(
-                        f"네이버 프리미엄 목록에서 {len(naver_posts)}개 처리 완료 "
-                        f"(신규 {len(set(new_ids_all))}개)"
+                        f"총 {len(rows)}개 추출, 신규 {len(new_ids)}개 저장 완료 "
+                        f"(중복 {len(rows) - len(new_ids)}개)"
                     )
                 else:
-                    st.info("번호 목록(예: 1., 2., 3.) + 링크 조합을 찾지 못했습니다.")
+                    # 2) 네이버 프리미엄 목록 파서 시도
+                    naver_posts = extract_naver_premium_posts(html, url)
 
-        except requests.RequestException as exc:
-            st.error(f"HTML 요청 실패: {exc}")
-        except Exception as exc:
-            st.error(f"처리 중 오류: {exc}")
-    st.divider()
-    st.subheader("저장된 클리핑 기록")
+                    if naver_posts:
+                        new_ids_all = []
+                        for date_iso, title, link in naver_posts:
+                            new_ids = save_records(url, title, [(date_iso, link)])
+                            new_ids_all.extend(new_ids)
 
-    records = load_records()
-    if not records:
-        st.write("저장된 기록이 없습니다.")
-        return
+                        st.session_state.new_ids = set(new_ids_all)
+                        st.success(
+                            f"네이버 프리미엄 목록에서 {len(naver_posts)}개 처리 완료 "
+                            f"(신규 {len(set(new_ids_all))}개)"
+                        )
+                    else:
+                        st.info("번호 목록(예: 1., 2., 3.) + 링크 조합을 찾지 못했습니다.")
 
-    # 표로 보기 좋게
-    for _id, source_url, page_title, numbered_item, article_link, created_at in records:
-        is_new = _id in st.session_state.new_ids
-        badge = "🆕 NEW" if is_new else ""
-        st.markdown(
-            f"- {badge} **[{page_title}]**  \n"
-            f"  - 날짜/번호: `{numbered_item}`  \n"
-            f"  - 링크: {article_link}  \n"
-            f"  - 저장시각: {created_at}"
-        )
+            except requests.RequestException as exc:
+                st.error(f"HTML 요청 실패: {exc}")
+            except Exception as exc:
+                st.error(f"처리 중 오류: {exc}")
+
+        st.divider()
+        st.subheader("저장된 클리핑 기록")
+
+        records = load_records()
+        if not records:
+            st.write("저장된 기록이 없습니다.")
+            return
+
+        for _id, source_url, page_title, numbered_item, article_link, created_at in records:
+            is_new = _id in st.session_state.new_ids
+            badge = "🆕 NEW" if is_new else ""
+            st.markdown(
+                f"- {badge} **[{page_title}]**  \n"
+                f"  - 날짜/번호: `{numbered_item}`  \n"
+                f"  - 링크: {article_link}  \n"
+                f"  - 저장시각: {created_at}"
+            )
+
+
+if __name__ == "__main__":
+    main()
 
 
 if __name__ == "__main__":
