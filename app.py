@@ -237,27 +237,20 @@ def main() -> None:
 
     if st.button("가져오고 저장하기", type="primary"):
         if not url:
-            st.warning("먼저 URL을 입력해 주세요.")
-        else:
-            try:
-                html = fetch_html(url)
-                page_title, rows = extract_numbered_items_and_links(html, url)
+        try:
+            html = fetch_html(url)
+            page_title, rows = extract_numbered_items_and_links(html, url)
 
-               if not rows:
-    # 번호목록 파서 실패 → 네이버 프리미엄 목록 파서 시도
-    naver_posts = extract_naver_premium_posts(html, url)
+            if not rows:
+                st.info("번호 목록(예: 1. ... 2. ...) + 링크 조합을 찾지 못했습니다.")
+            else:
+                new_ids = save_records(url, page_title, rows)
+                st.session_state.new_ids = set(new_ids)
 
-    if naver_posts:
-        # save_records는 (source_url, page_title, rows) 형식이므로
-        # rows를 (date, link)로 맞춰서 넣고, page_title은 '글 제목'으로 넣기 위해
-        # save_records를 한 건씩 호출합니다.
-        new_ids_all = []
-        for date_iso, title, link in naver_posts:
-            new_ids = save_records(url, title, [(date_iso, link)])
-            new_ids_all.extend(new_ids)
-
-        st.session_state.new_ids = set(new_ids_all)
-        st.success(f"네이버 프리미엄 목록에서 {len(naver_posts)}개 처리 완료 (신규 {len(set(new_ids_all))}개)")
+                st.success(
+                    f"총 {len(rows)}개 추출, 신규 {len(new_ids)}개 저장 완료 "
+                    f"(중복 {len(rows) - len(new_ids)}개)"
+                )
     else:
         st.info("번호 목록(예: 1. ... 2. ...) + 링크 조합을 찾지 못했고, 네이버 프리미엄 글 목록도 찾지 못했습니다.")
 else:
