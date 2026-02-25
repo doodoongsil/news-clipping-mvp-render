@@ -231,7 +231,6 @@ if st.button("가져오고 저장하기", type="primary"):
         try:
             html = fetch_html(url)
 
-            # 1️⃣ 일반 번호목록 파서
             page_title, rows = extract_numbered_items_and_links(html, url)
 
             if rows:
