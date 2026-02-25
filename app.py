@@ -231,19 +231,18 @@ if st.button("가져오고 저장하기", type="primary"):
         try:
             html = fetch_html(url)
 
+            # 1) 일반 번호목록 파서 먼저 시도
             page_title, rows = extract_numbered_items_and_links(html, url)
 
             if rows:
                 new_ids = save_records(url, page_title, rows)
                 st.session_state.new_ids = set(new_ids)
-
                 st.success(
                     f"총 {len(rows)}개 추출, 신규 {len(new_ids)}개 저장 완료 "
                     f"(중복 {len(rows) - len(new_ids)}개)"
                 )
-
             else:
-                # 2️⃣ 네이버 프리미엄 목록 파서
+                # 2) 네이버 프리미엄 목록 파서 시도
                 naver_posts = extract_naver_premium_posts(html, url)
 
                 if naver_posts:
@@ -253,17 +252,15 @@ if st.button("가져오고 저장하기", type="primary"):
                         new_ids_all.extend(new_ids)
 
                     st.session_state.new_ids = set(new_ids_all)
-
                     st.success(
                         f"네이버 프리미엄 목록에서 {len(naver_posts)}개 처리 완료 "
                         f"(신규 {len(set(new_ids_all))}개)"
                     )
                 else:
-                    st.info("번호목록/네이버 프리미엄 목록을 모두 찾지 못했습니다.")
+                    st.info("번호 목록(예: 1., 2., 3.) + 링크 조합을 찾지 못했습니다.")
 
         except requests.RequestException as exc:
             st.error(f"HTML 요청 실패: {exc}")
-
         except Exception as exc:
             st.error(f"처리 중 오류: {exc}")
     st.divider()
