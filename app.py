@@ -178,6 +178,8 @@ def init_db():
     conn.commit()
     conn.close()
 
+# 앱 시작 시 DB와 테이블 먼저 준비
+init_db()
 
 def get_db_connection():
     conn = sqlite3.connect(DB_PATH)
@@ -2505,4 +2507,6 @@ html_template = """
 
 if __name__ == "__main__":
     init_db()
-    app.run(debug=False, use_reloader=False, port=5001)
+    import os
+    port = int(os.environ.get("PORT", 5001))
+    app.run(host="0.0.0.0", port=port)
