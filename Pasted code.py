@@ -18,39 +18,30 @@ is_fetching = False
 # 자동 수집 최소 간격(분)
 AUTO_FETCH_INTERVAL_MINUTES = 10
 
-# 대표 지수
-representative_list = [
+# 시장 지수
+index_list = [
     {
-        "market": "대표지수",
+        "market": "시장지수",
         "name": "코스피",
         "code": "KOSPI",
-        "price_source": "index",
         "link": "https://finance.naver.com/sise/sise_index.naver?code=KOSPI",
     },
     {
-        "market": "대표지수",
+        "market": "시장지수",
         "name": "코스닥",
         "code": "KOSDAQ",
-        "price_source": "index",
         "link": "https://finance.naver.com/sise/sise_index.naver?code=KOSDAQ",
     },
+]
+
+# 관심 종목
+stock_list = [
     {
-        "market": "대표지수",
+        "market": "코스피",
         "name": "삼성전자",
         "code": "005930",
         "price_source": "naver",
         "link": "https://finance.naver.com/item/main.nhn?code=005930",
-    },
-]
-
-# 국내
-domestic_stock_list = [
-    {
-        "market": "K-OTC",
-        "name": "아리바이오",
-        "code": "192230",
-        "price_source": "kotc",
-        "link": "https://www.k-otc.or.kr/public/item/presentPrice",
     },
     {
         "market": "코스닥",
@@ -66,23 +57,12 @@ domestic_stock_list = [
         "price_source": "naver",
         "link": "https://finance.naver.com/item/main.nhn?code=261780",
     },
-]
-
-# 해외
-overseas_stock_list = [
     {
-        "market": "미국",
-        "name": "알파벳(구글)",
-        "code": "GOOGL",
-        "price_source": "google_finance_us",
-        "link": "https://www.google.com/finance/quote/GOOGL:NASDAQ?hl=ko",
-    },
-    {
-        "market": "미국",
-        "name": "엔비디아",
-        "code": "NVDA",
-        "price_source": "google_finance_us",
-        "link": "https://www.google.com/finance/quote/NVDA:NASDAQ?hl=ko",
+        "market": "K-OTC",
+        "name": "아리바이오",
+        "code": "192230",
+        "price_source": "kotc",
+        "link": "https://www.k-otc.or.kr/public/item/presentPrice",
     },
     {
         "market": "베트남",
@@ -109,46 +89,8 @@ extra_market_list = [
         "price_source": "dubai",
         "link": "https://www.opinet.co.kr/gloptotSelect.do",
     },
-    {
-        "market": "금",
-        "name": "금시세",
-        "code": "GOLD",
-        "price_source": "gold",
-        "link": "https://finance.naver.com/marketindex/goldDetail.nhn",
-    },
 ]
 
-# 금리 정보
-interest_rate_list = [
-    {
-        "market": "금리",
-        "name": "기준금리",
-        "code": "BOK",
-        "price_source": "base_rate",
-        "link": "https://www.bok.or.kr/eng/main/main.do",
-    },
-    {
-        "market": "금리",
-        "name": "주담대금리",
-        "code": "KB국민은행",
-        "price_source": "kb_mortgage",
-        "link": "https://obank.kbstar.com/quics?QSL=F&cc=b104363%3Ab104516&isNew=N&page=C103557&prcode=LN20001160",
-    },
-    {
-        "market": "금리",
-        "name": "신용대출금리",
-        "code": "KB국민은행",
-        "price_source": "kb_credit",
-        "link": "https://obank.kbstar.com/quics?QSL=F&cc=b104363%3Ab104516&isNew=N&page=C103429&prcode=LN20001347",
-    },
-    {
-        "market": "금리",
-        "name": "정기예금금리",
-        "code": "KB국민은행",
-        "price_source": "kb_deposit",
-        "link": "https://obank.kbstar.com/quics?page=C016613",
-    },
-]
 
 def init_db():
     """DB 파일과 테이블 생성"""
@@ -781,152 +723,6 @@ def fetch_vietstock_stock_price(stock):
             "change_class": "flat",
         }
 
-def fetch_google_finance_us_price(stock):
-    headers = {
-        "User-Agent": (
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-            "AppleWebKit/537.36 (KHTML, like Gecko) "
-            "Chrome/122.0.0.0 Safari/537.36"
-        ),
-        "Accept-Language": "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7",
-    }
-
-    try:
-        res = requests.get(stock["link"], headers=headers, timeout=10)
-        res.raise_for_status()
-
-        soup = BeautifulSoup(res.text, "html.parser")
-
-        # 1) 현재가 먼저 찾기
-        price_elem = (
-            soup.select_one("div.YMlKec.fxKbKc")
-            or soup.select_one(".YMlKec")
-        )
-
-        if not price_elem:
-            return {
-                "price": "가격 확인 실패",
-                "status": "",
-                "change_class": "flat",
-            }
-
-        price_text = price_elem.get_text(strip=True)
-
-        # 2) 등락 정보 영역 찾기
-        perf_elem = (
-            soup.select_one('[jsname="Fe7oBc"]')
-            or soup.select_one("div.JwB6zf")
-        )
-
-        raw_text = ""
-        if perf_elem:
-            aria_label = perf_elem.get("aria-label", "")
-            text_value = perf_elem.get_text(" ", strip=True)
-
-            if aria_label:
-                raw_text += " " + aria_label
-            if text_value:
-                raw_text += " " + text_value
-
-        raw_text = raw_text.replace("−", "-")
-        raw_text = " ".join(raw_text.split())
-
-        # print("DEBUG_GOOGLE_RAW:", stock["code"], raw_text)
-
-        diff_value = None
-        rate_value = None
-        direction_key = "flat"
-
-        lower_text = raw_text.lower()
-        if "down" in lower_text or "하락" in raw_text:
-            direction_key = "down"
-        elif "up" in lower_text or "상승" in raw_text:
-            direction_key = "up"
-
-        # 3) 등락률 찾기
-        m_rate = re.search(r"([+\-]?\d+(?:\.\d+)?)%", raw_text)
-        if m_rate:
-            rate_value = m_rate.group(1)
-
-        # 4) 달러 기준 등락값 찾기
-        m_diff_dollar = re.search(r"([+\-]?)\$([\d,]+(?:\.\d+)?)", raw_text)
-        if m_diff_dollar:
-            sign = m_diff_dollar.group(1)
-            num = m_diff_dollar.group(2).replace(",", "")
-            diff_value = f"{sign}{num}" if sign else num
-
-        # 5) 숫자 후보에서 한 번 더 찾기
-        if diff_value is None:
-            number_candidates = re.findall(r"[+\-]?\d+(?:\.\d+)?", raw_text)
-            price_number = re.sub(r"[^\d.]", "", price_text)
-
-            filtered = []
-            for n in number_candidates:
-                clean_n = n.replace("+", "").replace("-", "")
-                if clean_n == price_number:
-                    continue
-                if rate_value is not None and clean_n == rate_value.replace("+", "").replace("-", ""):
-                    continue
-                filtered.append(n)
-
-            if filtered:
-                diff_value = filtered[0]
-
-        # 6) 부호 보정
-        if diff_value is not None and not str(diff_value).startswith(("+", "-")):
-            if direction_key == "up":
-                diff_value = f"+{diff_value}"
-            elif direction_key == "down":
-                diff_value = f"-{diff_value}"
-
-        if rate_value is not None and not str(rate_value).startswith(("+", "-")):
-            if direction_key == "up":
-                rate_value = f"+{rate_value}"
-            elif direction_key == "down":
-                rate_value = f"-{rate_value}"
-
-        # 7) 등락값 + 등락률 둘 다 찾았으면 정상 표시
-        if diff_value is not None and rate_value is not None:
-            status_info = make_status(diff_value, rate_value, direction_key)
-            return {
-                "price": price_text,
-                "status": status_info["status"],
-                "change_class": status_info["change_class"],
-            }
-
-        # 8) 등락률만 있어도 다른 카드와 같은 형식으로 표시
-        if rate_value is not None:
-            if not str(rate_value).startswith(("+", "-")):
-                if direction_key == "up":
-                    rate_value = f"+{rate_value}"
-                elif direction_key == "down":
-                    rate_value = f"-{rate_value}"
-
-            # 등락값을 못 찾았으면, 일단 등락률 숫자를 등락값 자리에도 넣어서 형식 통일
-            fallback_diff = str(rate_value).replace("+", "").replace("-", "")
-
-            status_info = make_status(fallback_diff, rate_value, direction_key)
-
-            return {
-                "price": price_text,
-                "status": status_info["status"],
-                "change_class": status_info["change_class"],
-            }
-
-        # 9) 가격만 있으면 문구는 비우고, 가격은 기본 진한색으로
-        return {
-            "price": price_text,
-            "status": "",
-            "change_class": "neutral",
-        }
-
-    except Exception:
-        return {
-            "price": "가격 확인 실패",
-            "status": "",
-            "change_class": "flat",
-        }
-
 def fetch_naver_index_price(index_item):
     headers = {
         "User-Agent": (
@@ -938,14 +734,11 @@ def fetch_naver_index_price(index_item):
 
     try:
         res = requests.get(index_item["link"], headers=headers, timeout=10)
-        res.raise_for_status()
         soup = BeautifulSoup(res.text, "html.parser")
 
-        # 1) 현재 지수값
-        price_elem = (
-            soup.select_one("p.no_today span.blind")
-            or soup.select_one("#now_value")
-        )
+        price_elem = soup.select_one("#now_value")
+        change_value_elem = soup.select_one("#change_value_and_rate")
+
         if not price_elem:
             return {
                 "price": "지수 확인 실패",
@@ -955,39 +748,26 @@ def fetch_naver_index_price(index_item):
 
         price_text = price_elem.get_text(strip=True)
 
-        # 2) 페이지 전체 텍스트 정리
-        whole_text = soup.get_text(" ", strip=True)
-        whole_text = " ".join(whole_text.split()).replace("−", "-")
-
         diff_value = None
         rate_value = None
         direction_key = "flat"
 
-        # 3) 현재가 바로 뒤에 붙는 "등락값 등락률" 패턴 찾기
-        # 예: 5,362.41 98.05 -1.80% 상승
-        pattern_after_price = rf"{re.escape(price_text)}\s+([0-9,]+(?:\.\d+)?)\s+([+\-]?\d+(?:\.\d+)?)%"
-        m = re.search(pattern_after_price, whole_text)
+        if change_value_elem:
+            text = change_value_elem.get_text(" ", strip=True)
+            text = " ".join(text.split())
 
-        if m:
-            diff_value = m.group(1)
-            rate_value = m.group(2)
+            parts = text.split()
+            if len(parts) >= 1:
+                diff_value = parts[0].replace("+", "").replace("-", "")
+            if len(parts) >= 2:
+                rate_value = parts[1]
 
-        # 4) 혹시 못 찾으면 보조 패턴
-        if diff_value is None or rate_value is None:
-            m2 = re.search(
-                r"전일대비\s*([0-9,]+(?:\.\d+)?)\s*([+\-]?\d+(?:\.\d+)?)%",
-                whole_text
-            )
-            if m2:
-                diff_value = m2.group(1)
-                rate_value = m2.group(2)
-
-        # 5) 방향은 단어가 아니라 등락률 부호 기준
-        if rate_value:
-            if str(rate_value).startswith("-"):
-                direction_key = "down"
-            elif str(rate_value).startswith("+"):
-                direction_key = "up"
+                if rate_value.startswith("-"):
+                    direction_key = "down"
+                elif rate_value.startswith("+"):
+                    direction_key = "up"
+                else:
+                    direction_key = "flat"
 
         status_info = make_status(diff_value, rate_value, direction_key)
 
@@ -997,13 +777,14 @@ def fetch_naver_index_price(index_item):
             "change_class": status_info["change_class"],
         }
 
-    except Exception as e:
+    except Exception:
         return {
             "price": "지수 확인 실패",
-            "status": f"접속 오류: {str(e)}",
+            "status": "접속 오류",
             "change_class": "flat",
         }
-    
+
+
 def fetch_naver_exchange_price(item):
     headers = {
         "User-Agent": (
@@ -1156,306 +937,19 @@ def fetch_dubai_price(item):
             "change_class": "flat",
         }
 
-def fetch_gold_price(item):
-    headers = {
-        "User-Agent": (
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-            "AppleWebKit/537.36 (KHTML, like Gecko) "
-            "Chrome/122.0.0.0 Safari/537.36"
-        )
-    }
 
-    try:
-        res = requests.get(item["link"], headers=headers, timeout=10)
-        soup = BeautifulSoup(res.text, "html.parser")
-
-        # 1. 현재 금시세
-        price_text = None
-
-        no_today = soup.select_one("p.no_today")
-        if no_today:
-            raw_price_text = no_today.get_text(" ", strip=True)
-            raw_price_text = " ".join(raw_price_text.split())
-
-            price_candidate = re.sub(r"[^0-9,.\s원]", "", raw_price_text)
-            price_candidate = price_candidate.replace(" ", "")
-
-            m_price = re.search(r"([\d,]+(?:\.\d+)?)원?", price_candidate)
-            if m_price:
-                price_text = f"{m_price.group(1)}원"
-
-        if not price_text:
-            return {
-                "price": "금시세 확인 실패",
-                "status": "현재 금시세 찾기 실패",
-                "change_class": "flat",
-            }
-
-        # 2. 전일대비 / 등락률
-        diff_value = None
-        rate_value = None
-        direction_key = "flat"
-
-        no_exday = soup.select_one("p.no_exday")
-        if no_exday:
-            exday_text = no_exday.get_text(" ", strip=True)
-            exday_text = " ".join(exday_text.split())
-            exday_compact = exday_text.replace(" ", "")
-
-            m = re.search(
-                r"전일대비([\d,]+(?:\.\d+)?)\(([+\-−]?\d+(?:\.\d+)?)%\)",
-                exday_compact
-            )
-            if m:
-                diff_value = m.group(1)
-                rate_value = m.group(2).replace("−", "-")
-
-                if rate_value.startswith("-"):
-                    direction_key = "down"
-                elif rate_value.startswith("+"):
-                    direction_key = "up"
-
-        status_info = make_status(diff_value, rate_value, direction_key)
-
-        return {
-            "price": price_text,
-            "status": status_info["status"],
-            "change_class": status_info["change_class"],
-        }
-
-    except Exception as e:
-        return {
-            "price": "금시세 확인 실패",
-            "status": f"접속 오류: {str(e)}",
-            "change_class": "flat",
-        }
-
-def fetch_base_rate(item):
-    headers = {
-        "User-Agent": (
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-            "AppleWebKit/537.36 (KHTML, like Gecko) "
-            "Chrome/122.0.0.0 Safari/537.36"
-        )
-    }
-
-    try:
-        res = requests.get(item["link"], headers=headers, timeout=10)
-        res.raise_for_status()
-        soup = BeautifulSoup(res.text, "html.parser")
-        text = soup.get_text(" ", strip=True)
-        text = " ".join(text.split())
-
-        # 예: "BOK Base Rate 2.50 %"
-        match = re.search(r"BOK Base Rate\s*([\d.]+)\s*%", text, re.IGNORECASE)
-
-        if match:
-            rate = match.group(1)
-            return {
-                "price": f"{rate}%",
-                "status": "한국은행 기준",
-                "change_class": "flat",
-            }
-
-        # 보조 탐색
-        match2 = re.search(r"Base Rate.*?([\d.]+)\s*%", text, re.IGNORECASE)
-        if match2:
-            rate = match2.group(1)
-            return {
-                "price": f"{rate}%",
-                "status": "한국은행 기준",
-                "change_class": "flat",
-            }
-
-        return {
-            "price": "확인 실패",
-            "status": "기준금리 찾기실패",
-            "change_class": "flat",
-        }
-
-    except Exception as e:
-        return {
-            "price": "확인 실패",
-            "status": f"접속 오류: {str(e)}",
-            "change_class": "flat",
-        }
-
-def fetch_kb_mortgage_rate(item):
-    headers = {
-        "User-Agent": (
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-            "AppleWebKit/537.36 (KHTML, like Gecko) "
-            "Chrome/122.0.0.0 Safari/537.36"
-        )
-    }
-
-    try:
-        res = requests.get(item["link"], headers=headers, timeout=10)
-        res.raise_for_status()
-        soup = BeautifulSoup(res.text, "html.parser")
-        text = soup.get_text(" ", strip=True)
-        text = " ".join(text.split())
-
-        section = re.search(
-            r"KB 주택담보대출_변동.*?(?=KB 주택담보대출_혼합|$)",
-            text,
-            re.IGNORECASE
-        )
-
-        if not section:
-            return {
-                "price": "확인 실패",
-                "status": "KB 주담대금리 찾기실패",
-                "change_class": "flat",
-            }
-
-        rates = re.findall(
-            r"(?:금융채5년|신규COFIX6개월|신규COFIX12개월|신잔액COFIX6개월|신잔액COFIX12개월)\s*[\d.]+\s*[\d.]+\s*[\d.]+\s*([\d.]+)\s*([\d.]+)",
-            section.group(0)
-        )
-
-        if not rates:
-            return {
-                "price": "확인 실패",
-                "status": "KB 주담대 금리표 없음",
-                "change_class": "flat",
-            }
-
-        low_list = [float(x[0]) for x in rates]
-        high_list = [float(x[1]) for x in rates]
-
-        return {
-            "price": f"{min(low_list):.2f}%~{max(high_list):.2f}%",
-            "status": "KB국민은행 기준",
-            "change_class": "flat",
-        }
-
-    except Exception:
-        return {
-            "price": "확인 실패",
-            "status": "KB 주담대 접속오류",
-            "change_class": "flat",
-        }
-
-
-def fetch_kb_credit_rate(item):
-    headers = {
-        "User-Agent": (
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-            "AppleWebKit/537.36 (KHTML, like Gecko) "
-            "Chrome/122.0.0.0 Safari/537.36"
-        )
-    }
-
-    try:
-        res = requests.get(item["link"], headers=headers, timeout=10)
-        res.raise_for_status()
-        soup = BeautifulSoup(res.text, "html.parser")
-        text = soup.get_text(" ", strip=True)
-        text = " ".join(text.split())
-
-        rates = re.findall(
-            r"(?:CD 91일물|금융채6개월|금융채12개월)\s*[\d.]+\s*[\d.]+\s*[\d.]+\s*([\d.]+)\s*([\d.]+)",
-            text
-        )
-
-        if not rates:
-            return {
-                "price": "확인 실패",
-                "status": "KB 신용대출 금리표 없음",
-                "change_class": "flat",
-            }
-
-        low_list = [float(x[0]) for x in rates]
-        high_list = [float(x[1]) for x in rates]
-
-        return {
-            "price": f"{min(low_list):.2f}%~{max(high_list):.2f}%",
-            "status": "KB국민은행 기준",
-            "change_class": "flat",
-        }
-
-    except Exception:
-        return {
-            "price": "확인 실패",
-            "status": "KB 신용대출 접속오류",
-            "change_class": "flat",
-        }
-
-def fetch_kb_deposit_rate(item):
-    return {
-        "price": "2.25%~2.25%",
-        "status": "KB국민은행 기준",
-        "change_class": "flat",
-    }
-
-def get_interest_rate_cards():
+def get_stock_cards():
     cards = []
 
-    for item in interest_rate_list:
-        item_copy = item.copy()
-
-        if item["price_source"] == "base_rate":
-            price_info = fetch_base_rate(item)
-        elif item["price_source"] == "kb_mortgage":
-            price_info = fetch_kb_mortgage_rate(item)
-        elif item["price_source"] == "kb_credit":
-            price_info = fetch_kb_credit_rate(item)
-        elif item["price_source"] == "kb_deposit":
-            price_info = fetch_kb_deposit_rate(item)
-        else:
-            price_info = {
-                "price": "미지원",
-                "status": "",
-                "change_class": "flat",
-            }
-
-        item_copy["price"] = price_info["price"]
-        item_copy["status"] = price_info["status"]
-        item_copy["change_class"] = price_info["change_class"]
-        cards.append(item_copy)
-
-        time.sleep(0.2)
-
-    return cards
-
-def get_representative_cards():
-    cards = []
-
-    for item in representative_list:
-        item_copy = item.copy()
-
-        if item["price_source"] == "index":
-            price_info = fetch_naver_index_price(item)
-        elif item["price_source"] == "naver":
-            price_info = fetch_naver_stock_price(item)
-        else:
-            price_info = {
-                "price": "미지원",
-                "status": "",
-                "change_class": "flat",
-            }
-
-        item_copy["price"] = price_info["price"]
-        item_copy["status"] = price_info["status"]
-        item_copy["change_class"] = price_info["change_class"]
-        cards.append(item_copy)
-
-        time.sleep(0.2)
-
-    return cards
-
-
-def get_domestic_stock_cards():
-    cards = []
-
-    for stock in domestic_stock_list:
+    for stock in stock_list:
         stock_copy = stock.copy()
 
         if stock["price_source"] == "naver":
             price_info = fetch_naver_stock_price(stock)
         elif stock["price_source"] == "kotc":
             price_info = fetch_kotc_stock_price(stock)
+        elif stock["price_source"] == "vietstock":
+            price_info = fetch_vietstock_stock_price(stock)    
         else:
             price_info = {
                 "price": "미지원",
@@ -1473,32 +967,21 @@ def get_domestic_stock_cards():
     return cards
 
 
-def get_overseas_stock_cards():
+def get_index_cards():
     cards = []
 
-    for stock in overseas_stock_list:
-        stock_copy = stock.copy()
+    for index_item in index_list:
+        item_copy = index_item.copy()
+        price_info = fetch_naver_index_price(index_item)
 
-        if stock["price_source"] == "google_finance_us":
-            price_info = fetch_google_finance_us_price(stock)
-        elif stock["price_source"] == "vietstock":
-            price_info = fetch_vietstock_stock_price(stock)
-        else:
-            price_info = {
-                "price": "미지원",
-                "status": "",
-                "change_class": "flat",
-            }
-
-        stock_copy["price"] = price_info["price"]
-        stock_copy["status"] = price_info["status"]
-        stock_copy["change_class"] = price_info["change_class"]
-        cards.append(stock_copy)
+        item_copy["price"] = price_info["price"]
+        item_copy["status"] = price_info["status"]
+        item_copy["change_class"] = price_info["change_class"]
+        cards.append(item_copy)
 
         time.sleep(0.2)
 
     return cards
-
 
 
 def get_extra_market_cards():
@@ -1511,8 +994,6 @@ def get_extra_market_cards():
             price_info = fetch_naver_exchange_price(item)
         elif item["price_source"] == "dubai":
             price_info = fetch_dubai_price(item)
-        elif item["price_source"] == "gold":
-            price_info = fetch_gold_price(item)
         else:
             price_info = {
                 "price": "미지원",
@@ -1551,11 +1032,9 @@ def home():
     last_fetch = get_last_auto_fetch_time()
     last_fetch_text = last_fetch.strftime("%Y-%m-%d %H:%M:%S") if last_fetch else "없음"
 
-    representative_cards = get_representative_cards()
-    domestic_stock_cards = get_domestic_stock_cards()
-    overseas_stock_cards = get_overseas_stock_cards()
+    index_cards = get_index_cards()
+    stock_cards = get_stock_cards()
     extra_market_cards = get_extra_market_cards()
-    interest_rate_cards = get_interest_rate_cards()
 
     return render_template_string(
         html_template,
@@ -1568,12 +1047,9 @@ def home():
         message=message,
         message_type=message_type,
         search_keyword=search_keyword,
-        representative_cards=representative_cards,
-        domestic_stock_cards=domestic_stock_cards,
-        overseas_stock_cards=overseas_stock_cards,
+        index_cards=index_cards,
+        stock_cards=stock_cards,
         extra_market_cards=extra_market_cards,
-        interest_rate_cards=interest_rate_cards,
-
     )
 
 
@@ -1625,7 +1101,6 @@ html_template = """
 <html>
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>데일리 브리핑</title>
     <script src="https://t1.kakaocdn.net/kakao_js_sdk/2.7.0/kakao.min.js"></script>
     <style>
@@ -1809,7 +1284,7 @@ html_template = """
 }
 
 .stock-price {
-    font-size: 1.1em;
+    font-size: 1.45em;
     font-weight: 700;
     margin: 0;
     line-height: 1.2;
@@ -1852,10 +1327,6 @@ html_template = """
 
 .flat {
     color: #757575;
-}
-
-.neutral {
-    color: #1e272e;
 }
 
         .news-section {
@@ -2014,172 +1485,6 @@ html_template = """
             color: #666;
             margin-top: 15px;
         }
-    
-            @media (max-width: 768px) {
-            body {
-                padding: 14px;
-            }
-
-            .container {
-                padding: 16px;
-                border-radius: 10px;
-            }
-
-            h1 {
-                font-size: 1.5em;
-                margin-bottom: 18px;
-            }
-
-            .top-bar {
-                flex-direction: column;
-                align-items: stretch;
-                gap: 10px;
-            }
-
-            .btn-fetch {
-                width: 100%;
-                box-sizing: border-box;
-                text-align: center;
-                padding: 12px 14px;
-            }
-
-            .status-box,
-            .message-box {
-                font-size: 0.9em;
-                line-height: 1.5;
-            }
-
-            .section-title {
-                font-size: 1.05em;
-                margin: 22px 0 10px 0;
-            }
-
-            .stock-grid {
-                grid-template-columns: repeat(2, minmax(0, 1fr));
-                gap: 12px;
-            }
-
-            
-
-            .stock-card {
-                padding: 14px;
-            }
-
-            .stock-header-row,
-            .stock-top-row,
-            .stock-middle-row {
-                flex-direction: column;
-                align-items: flex-start;
-                gap: 8px;
-            }
-
-            .stock-code,
-            .stock-status {
-                text-align: left;
-                white-space: normal;
-            }
-
-            .stock-price {
-                font-size: 1.28em;
-            }
-
-            .stock-link {
-                align-self: flex-start;
-            }
-
-            .search-box {
-                flex-direction: column;
-                align-items: stretch;
-            }
-
-            .search-input,
-            .btn-search,
-            .btn-reset {
-                width: 100%;
-                box-sizing: border-box;
-            }
-
-            .news-item {
-                flex-direction: column;
-                align-items: flex-start;
-            }
-
-            .news-item > div:first-child {
-                width: 100%;
-            }
-
-            .btn-summary {
-                width: 100%;
-                padding: 10px 12px;
-                border-radius: 6px;
-            }
-
-            .list-header {
-                flex-wrap: wrap;
-                line-height: 1.5;
-            }
-
-            .pagination {
-                justify-content: flex-start;
-            }
-
-            .pagination a {
-                padding: 8px 10px;
-            }
-
-            .modal-content {
-                width: 94%;
-                margin: 20px auto;
-                padding: 18px;
-                border-radius: 12px;
-            }
-
-            .modal-header {
-                flex-direction: column;
-                align-items: stretch;
-                padding-right: 30px;
-            }
-
-            .btn-share,
-            .btn-copy {
-                width: 100%;
-                justify-content: center;
-                box-sizing: border-box;
-            }
-
-            #summaryContainer {
-                max-height: 60vh;
-                padding: 14px;
-            }
-        }    
-    @media (max-width: 480px) {
-    .stock-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 10px;
-    }
-
-    .stock-card {
-        padding: 12px;
-    }
-
-    .stock-name {
-        font-size: 0.98em;
-    }
-
-    .stock-price {
-        font-size: 1.18em;
-    }
-
-    .stock-code,
-    .stock-status {
-        font-size: 0.82em;
-    }
-
-    .stock-link {
-        font-size: 0.75em;
-        padding: 4px 8px;
-    }
-}
     </style>
 </head>
 <body>
@@ -2205,9 +1510,9 @@ html_template = """
 <div class="section-title">📊 시장 정보</div>
 
 <div class="market-section">
-    <div class="section-title">대표</div>
+    <div class="section-title">시장 지수</div>
     <div class="stock-grid">
-        {% for item in representative_cards %}
+        {% for item in index_cards %}
         <div class="stock-card">
             <div class="stock-header-row">
                 <div class="stock-market">{{ item.market }}</div>
@@ -2229,9 +1534,9 @@ html_template = """
 </div>
 
 <div class="market-section">
-    <div class="section-title">국내</div>
+    <div class="section-title">관심 종목</div>
     <div class="stock-grid">
-        {% for item in domestic_stock_cards %}
+        {% for item in stock_cards %}
         <div class="stock-card">
             <div class="stock-header-row">
                 <div class="stock-market">{{ item.market }}</div>
@@ -2253,31 +1558,7 @@ html_template = """
 </div>
 
 <div class="market-section">
-    <div class="section-title">해외</div>
-    <div class="stock-grid">
-        {% for item in overseas_stock_cards %}
-        <div class="stock-card">
-            <div class="stock-header-row">
-                <div class="stock-market">{{ item.market }}</div>
-                <a href="{{ item.link }}" target="_blank" class="stock-link">바로가기</a>
-            </div>
-
-            <div class="stock-top-row">
-                <div class="stock-name">{{ item.name }}</div>
-                <div class="stock-code">코드: {{ item.code }}</div>
-            </div>
-
-            <div class="stock-middle-row">
-                <div class="stock-price {{ item.change_class }}">{{ item.price }}</div>
-                <div class="stock-status {{ item.change_class }}">{{ item.status }}</div>
-            </div>
-        </div>
-        {% endfor %}
-    </div>
-</div>
-
-<div class="market-section">
-    <div class="section-title">기타</div>
+    <div class="section-title">환율 · 원유</div>
     <div class="stock-grid">
         {% for item in extra_market_cards %}
         <div class="stock-card">
@@ -2289,30 +1570,6 @@ html_template = """
             <div class="stock-top-row">
                 <div class="stock-name">{{ item.name }}</div>
                 <div class="stock-code">코드: {{ item.code }}</div>
-            </div>
-
-            <div class="stock-middle-row">
-                <div class="stock-price {{ item.change_class }}">{{ item.price }}</div>
-                <div class="stock-status {{ item.change_class }}">{{ item.status }}</div>
-            </div>
-        </div>
-        {% endfor %}
-    </div>
-</div>
-
-<div class="market-section">
-    <div class="section-title">금리</div>
-    <div class="stock-grid">
-        {% for item in interest_rate_cards %}
-        <div class="stock-card">
-            <div class="stock-header-row">
-                <div class="stock-market">{{ item.market }}</div>
-                <a href="{{ item.link }}" target="_blank" class="stock-link">바로가기</a>
-            </div>
-
-            <div class="stock-top-row">
-                <div class="stock-name">{{ item.name }}</div>
-                <div class="stock-code">출처: {{ item.code }}</div>
             </div>
 
             <div class="stock-middle-row">
