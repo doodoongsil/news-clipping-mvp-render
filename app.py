@@ -34,17 +34,24 @@ representative_list = [
         "price_source": "index",
         "link": "https://finance.naver.com/sise/sise_index.naver?code=KOSDAQ",
     },
+]
+
+# 국내
+domestic_stock_list = [
     {
-        "market": "대표지수",
+        "market": "코스피",
         "name": "삼성전자",
         "code": "005930",
         "price_source": "naver",
         "link": "https://finance.naver.com/item/main.nhn?code=005930",
     },
-]
-
-# 국내
-domestic_stock_list = [
+    {
+        "market": "코스피",
+        "name": "SK하이닉스",
+        "code": "000660",
+        "price_source": "naver",
+        "link": "https://finance.naver.com/item/main.nhn?code=000660",
+    },
     {
         "market": "K-OTC",
         "name": "아리바이오",
@@ -65,6 +72,13 @@ domestic_stock_list = [
         "code": "261780",
         "price_source": "naver",
         "link": "https://finance.naver.com/item/main.nhn?code=261780",
+    },
+    {
+        "market": "코스피",
+        "name": "삼진제약",
+        "code": "005500",
+        "price_source": "naver",
+        "link": "https://finance.naver.com/item/main.nhn?code=005500",
     },
 ]
 
@@ -178,12 +192,10 @@ def init_db():
     conn.commit()
     conn.close()
 
-
 def get_db_connection():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn
-
 
 def insert_news(title, link, summary):
     """뉴스 1건 저장. 이미 있으면 무시"""
@@ -198,7 +210,6 @@ def insert_news(title, link, summary):
     )
     conn.commit()
     conn.close()
-
 
 def get_total_count(search_keyword=""):
     conn = get_db_connection()
@@ -219,7 +230,6 @@ def get_total_count(search_keyword=""):
     count = cur.fetchone()[0]
     conn.close()
     return count
-
 
 def get_news_page(page, per_page, search_keyword=""):
     offset = (page - 1) * per_page
@@ -252,7 +262,6 @@ def get_news_page(page, per_page, search_keyword=""):
     conn.close()
     return rows
 
-
 def delete_news_by_ids(selected_ids):
     if not selected_ids:
         return 0
@@ -269,7 +278,6 @@ def delete_news_by_ids(selected_ids):
     conn.close()
     return deleted_count
 
-
 def has_news_title(title):
     conn = get_db_connection()
     cur = conn.cursor()
@@ -277,7 +285,6 @@ def has_news_title(title):
     row = cur.fetchone()
     conn.close()
     return row is not None
-
 
 def set_meta(key, value):
     conn = get_db_connection()
@@ -293,7 +300,6 @@ def set_meta(key, value):
     conn.commit()
     conn.close()
 
-
 def get_meta(key):
     conn = get_db_connection()
     cur = conn.cursor()
@@ -301,7 +307,6 @@ def get_meta(key):
     row = cur.fetchone()
     conn.close()
     return row["value"] if row else None
-
 
 def get_last_auto_fetch_time():
     value = get_meta("last_auto_fetch_at")
@@ -313,10 +318,8 @@ def get_last_auto_fetch_time():
     except Exception:
         return None
 
-
 def set_last_auto_fetch_time(dt):
     set_meta("last_auto_fetch_at", dt.isoformat())
-
 
 def should_auto_fetch():
     last_fetch = get_last_auto_fetch_time()
@@ -326,7 +329,6 @@ def should_auto_fetch():
 
     next_fetch_time = last_fetch + timedelta(minutes=AUTO_FETCH_INTERVAL_MINUTES)
     return datetime.now() >= next_fetch_time
-
 
 def get_detailed_summary(url):
     """뉴스 원문에서 헤드라인 요약 추출"""
@@ -373,7 +375,6 @@ def get_detailed_summary(url):
     except Exception:
         return "접속 에러"
 
-
 def get_anjang_news():
     """중복을 제거하며 최신 뉴스 수집 후 DB에 저장"""
     url = "https://contents.premium.naver.com/anjang/anjangram"
@@ -413,7 +414,6 @@ def get_anjang_news():
             "inserted_count": 0,
         }
 
-
 def build_message(success, inserted_count, is_auto=False):
     if not success:
         return {
@@ -443,7 +443,6 @@ def build_message(success, inserted_count, is_auto=False):
         "type": "warning",
     }
 
-
 def auto_fetch_news_if_needed():
     """홈 화면 진입 시, 정해진 간격이 지났을 때만 자동 수집"""
     global is_fetching
@@ -465,7 +464,6 @@ def auto_fetch_news_if_needed():
         )
     finally:
         is_fetching = False
-
 
 def make_status(diff_value, rate_value, direction_key):
     arrow = "-"
@@ -520,7 +518,6 @@ def make_status(diff_value, rate_value, direction_key):
         "change_class": change_class,
     }
 
-
 def get_text_by_selectors(soup, selectors):
     for selector in selectors:
         elem = soup.select_one(selector)
@@ -529,7 +526,6 @@ def get_text_by_selectors(soup, selectors):
             if text:
                 return text
     return None
-
 
 def fetch_naver_stock_price(stock):
     headers = {
@@ -713,8 +709,6 @@ def fetch_vietstock_stock_price(stock):
         rate_value = None
         direction_key = "flat"
 
-        # 1) 상단 현재가 구간에서 가격 찾기
-        # 예: "OPC Pharmaceutical Joint Stock Company (HOSE: OPC) ... 22,800 (%) 03/23/2026 11:02 ..."
         m_price = re.search(
             r"OPC Pharmaceutical Joint Stock Company.*?\b(\d{1,3}(?:,\d{3})+)\b\s*\(%\)\s*\d{2}/\d{2}/\d{4}",
             page_text
@@ -722,8 +716,6 @@ def fetch_vietstock_stock_price(stock):
         if m_price:
             price_text = f"{m_price.group(1)}동"
 
-        # 2) 거래이력 첫 줄에서 가격/등락 찾기
-        # 예: "03/23/2026 22,800 0 (0.00%)"
         m_history = re.search(
             r"\d{2}/\d{2}/\d{4}\s+(\d{1,3}(?:,\d{3})+)\s+([+\-]?\d[\d,]*)\s+\(([+\-]?\d+(?:\.\d+)?)%\)",
             page_text
@@ -742,7 +734,6 @@ def fetch_vietstock_stock_price(stock):
             else:
                 direction_key = "flat"
 
-        # 3) 보조: 상단 가격은 찾았는데 등락은 못 찾았을 때
         if price_text and (diff_value is None or rate_value is None):
             m_change = re.search(
                 r"\b(\d{1,3}(?:,\d{3})+)\b\s+\(([+\-]?\d+(?:\.\d+)?)%\)",
@@ -797,7 +788,6 @@ def fetch_google_finance_us_price(stock):
 
         soup = BeautifulSoup(res.text, "html.parser")
 
-        # 1) 현재가 먼저 찾기
         price_elem = (
             soup.select_one("div.YMlKec.fxKbKc")
             or soup.select_one(".YMlKec")
@@ -812,7 +802,6 @@ def fetch_google_finance_us_price(stock):
 
         price_text = price_elem.get_text(strip=True)
 
-        # 2) 등락 정보 영역 찾기
         perf_elem = (
             soup.select_one('[jsname="Fe7oBc"]')
             or soup.select_one("div.JwB6zf")
@@ -831,8 +820,6 @@ def fetch_google_finance_us_price(stock):
         raw_text = raw_text.replace("−", "-")
         raw_text = " ".join(raw_text.split())
 
-        # print("DEBUG_GOOGLE_RAW:", stock["code"], raw_text)
-
         diff_value = None
         rate_value = None
         direction_key = "flat"
@@ -843,19 +830,16 @@ def fetch_google_finance_us_price(stock):
         elif "up" in lower_text or "상승" in raw_text:
             direction_key = "up"
 
-        # 3) 등락률 찾기
         m_rate = re.search(r"([+\-]?\d+(?:\.\d+)?)%", raw_text)
         if m_rate:
             rate_value = m_rate.group(1)
 
-        # 4) 달러 기준 등락값 찾기
         m_diff_dollar = re.search(r"([+\-]?)\$([\d,]+(?:\.\d+)?)", raw_text)
         if m_diff_dollar:
             sign = m_diff_dollar.group(1)
             num = m_diff_dollar.group(2).replace(",", "")
             diff_value = f"{sign}{num}" if sign else num
 
-        # 5) 숫자 후보에서 한 번 더 찾기
         if diff_value is None:
             number_candidates = re.findall(r"[+\-]?\d+(?:\.\d+)?", raw_text)
             price_number = re.sub(r"[^\d.]", "", price_text)
@@ -872,7 +856,6 @@ def fetch_google_finance_us_price(stock):
             if filtered:
                 diff_value = filtered[0]
 
-        # 6) 부호 보정
         if diff_value is not None and not str(diff_value).startswith(("+", "-")):
             if direction_key == "up":
                 diff_value = f"+{diff_value}"
@@ -885,7 +868,6 @@ def fetch_google_finance_us_price(stock):
             elif direction_key == "down":
                 rate_value = f"-{rate_value}"
 
-        # 7) 등락값 + 등락률 둘 다 찾았으면 정상 표시
         if diff_value is not None and rate_value is not None:
             status_info = make_status(diff_value, rate_value, direction_key)
             return {
@@ -894,7 +876,6 @@ def fetch_google_finance_us_price(stock):
                 "change_class": status_info["change_class"],
             }
 
-        # 8) 등락률만 있어도 다른 카드와 같은 형식으로 표시
         if rate_value is not None:
             if not str(rate_value).startswith(("+", "-")):
                 if direction_key == "up":
@@ -902,7 +883,6 @@ def fetch_google_finance_us_price(stock):
                 elif direction_key == "down":
                     rate_value = f"-{rate_value}"
 
-            # 등락값을 못 찾았으면, 일단 등락률 숫자를 등락값 자리에도 넣어서 형식 통일
             fallback_diff = str(rate_value).replace("+", "").replace("-", "")
 
             status_info = make_status(fallback_diff, rate_value, direction_key)
@@ -913,7 +893,6 @@ def fetch_google_finance_us_price(stock):
                 "change_class": status_info["change_class"],
             }
 
-        # 9) 가격만 있으면 문구는 비우고, 가격은 기본 진한색으로
         return {
             "price": price_text,
             "status": "",
@@ -941,7 +920,6 @@ def fetch_naver_index_price(index_item):
         res.raise_for_status()
         soup = BeautifulSoup(res.text, "html.parser")
 
-        # 1) 현재 지수값
         price_elem = (
             soup.select_one("p.no_today span.blind")
             or soup.select_one("#now_value")
@@ -955,7 +933,6 @@ def fetch_naver_index_price(index_item):
 
         price_text = price_elem.get_text(strip=True)
 
-        # 2) 페이지 전체 텍스트 정리
         whole_text = soup.get_text(" ", strip=True)
         whole_text = " ".join(whole_text.split()).replace("−", "-")
 
@@ -963,8 +940,6 @@ def fetch_naver_index_price(index_item):
         rate_value = None
         direction_key = "flat"
 
-        # 3) 현재가 바로 뒤에 붙는 "등락값 등락률" 패턴 찾기
-        # 예: 5,362.41 98.05 -1.80% 상승
         pattern_after_price = rf"{re.escape(price_text)}\s+([0-9,]+(?:\.\d+)?)\s+([+\-]?\d+(?:\.\d+)?)%"
         m = re.search(pattern_after_price, whole_text)
 
@@ -972,7 +947,6 @@ def fetch_naver_index_price(index_item):
             diff_value = m.group(1)
             rate_value = m.group(2)
 
-        # 4) 혹시 못 찾으면 보조 패턴
         if diff_value is None or rate_value is None:
             m2 = re.search(
                 r"전일대비\s*([0-9,]+(?:\.\d+)?)\s*([+\-]?\d+(?:\.\d+)?)%",
@@ -982,7 +956,6 @@ def fetch_naver_index_price(index_item):
                 diff_value = m2.group(1)
                 rate_value = m2.group(2)
 
-        # 5) 방향은 단어가 아니라 등락률 부호 기준
         if rate_value:
             if str(rate_value).startswith("-"):
                 direction_key = "down"
@@ -1003,7 +976,7 @@ def fetch_naver_index_price(index_item):
             "status": f"접속 오류: {str(e)}",
             "change_class": "flat",
         }
-    
+
 def fetch_naver_exchange_price(item):
     headers = {
         "User-Agent": (
@@ -1017,7 +990,6 @@ def fetch_naver_exchange_price(item):
         res = requests.get(item["link"], headers=headers, timeout=10)
         soup = BeautifulSoup(res.text, "html.parser")
 
-        # 1. 현재 환율
         price_text = None
 
         no_today = soup.select_one("p.no_today")
@@ -1025,7 +997,6 @@ def fetch_naver_exchange_price(item):
             raw_price_text = no_today.get_text(" ", strip=True)
             raw_price_text = " ".join(raw_price_text.split())
 
-            # 숫자/쉼표/점/원만 남기고, 그 안의 공백 제거
             price_candidate = re.sub(r"[^0-9,.\s원]", "", raw_price_text)
             price_candidate = price_candidate.replace(" ", "")
 
@@ -1040,7 +1011,6 @@ def fetch_naver_exchange_price(item):
                 "change_class": "flat",
             }
 
-        # 2. 전일대비 / 등락률
         diff_value = None
         rate_value = None
         direction_key = "flat"
@@ -1050,7 +1020,6 @@ def fetch_naver_exchange_price(item):
             exday_text = no_exday.get_text(" ", strip=True)
             exday_text = " ".join(exday_text.split())
 
-            # 공백 제거해서 "전일대비6.10(-0.41%)" 형태로 맞춤
             exday_compact = exday_text.replace(" ", "")
 
             m = re.search(
@@ -1169,7 +1138,6 @@ def fetch_gold_price(item):
         res = requests.get(item["link"], headers=headers, timeout=10)
         soup = BeautifulSoup(res.text, "html.parser")
 
-        # 1. 현재 금시세
         price_text = None
 
         no_today = soup.select_one("p.no_today")
@@ -1191,7 +1159,6 @@ def fetch_gold_price(item):
                 "change_class": "flat",
             }
 
-        # 2. 전일대비 / 등락률
         diff_value = None
         rate_value = None
         direction_key = "flat"
@@ -1246,7 +1213,6 @@ def fetch_base_rate(item):
         text = soup.get_text(" ", strip=True)
         text = " ".join(text.split())
 
-        # 예: "BOK Base Rate 2.50 %"
         match = re.search(r"BOK Base Rate\s*([\d.]+)\s*%", text, re.IGNORECASE)
 
         if match:
@@ -1257,7 +1223,6 @@ def fetch_base_rate(item):
                 "change_class": "flat",
             }
 
-        # 보조 탐색
         match2 = re.search(r"Base Rate.*?([\d.]+)\s*%", text, re.IGNORECASE)
         if match2:
             rate = match2.group(1)
@@ -1336,7 +1301,6 @@ def fetch_kb_mortgage_rate(item):
             "status": "KB 주담대 접속오류",
             "change_class": "flat",
         }
-
 
 def fetch_kb_credit_rate(item):
     headers = {
@@ -1445,7 +1409,6 @@ def get_representative_cards():
 
     return cards
 
-
 def get_domestic_stock_cards():
     cards = []
 
@@ -1472,7 +1435,6 @@ def get_domestic_stock_cards():
 
     return cards
 
-
 def get_overseas_stock_cards():
     cards = []
 
@@ -1498,8 +1460,6 @@ def get_overseas_stock_cards():
         time.sleep(0.2)
 
     return cards
-
-
 
 def get_extra_market_cards():
     cards = []
@@ -1528,7 +1488,6 @@ def get_extra_market_cards():
         time.sleep(0.2)
 
     return cards
-
 
 @app.route("/")
 def home():
@@ -1573,9 +1532,7 @@ def home():
         overseas_stock_cards=overseas_stock_cards,
         extra_market_cards=extra_market_cards,
         interest_rate_cards=interest_rate_cards,
-
     )
-
 
 @app.route("/fetch")
 def fetch():
@@ -1591,7 +1548,6 @@ def fetch():
     return redirect(
         "/?message=" + quote(msg["text"]) + "&message_type=" + quote(msg["type"])
     )
-
 
 @app.route("/delete", methods=["POST"])
 def delete():
@@ -1739,124 +1695,96 @@ html_template = """
         .market-section {
             margin-bottom: 26px;
         }
-        
-.stock-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-    gap: 14px;
-    margin-bottom: 8px;
-}
-
-.market-section {
-    margin-bottom: 26px;
-}
-
-.stock-card {
-    border: 1px solid #dfe5ec;
-    border-radius: 14px;
-    padding: 16px;
-    background: #ffffff;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-}
-
-.stock-header-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 12px;
-}
-
-.stock-market {
-    display: inline-block;
-    font-size: 0.78em;
-    background: #f1f3f5;
-    color: #5f6b76;
-    padding: 4px 8px;
-    border-radius: 999px;
-    font-weight: bold;
-    width: fit-content;
-}
-
-.stock-top-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 12px;
-}
-
-.stock-name {
-    font-size: 1.08em;
-    font-weight: bold;
-    color: #1e272e;
-    margin: 0;
-}
-
-.stock-code {
-    font-size: 0.88em;
-    color: #8b95a1;
-    margin: 0;
-    text-align: right;
-}
-
-.stock-middle-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-end;
-    gap: 12px;
-}
-
-.stock-price {
-    font-size: 1.1em;
-    font-weight: 700;
-    margin: 0;
-    line-height: 1.2;
-    flex-shrink: 0;
-}
-
-.stock-status {
-    font-size: 0.92em;
-    font-weight: 700;
-    margin: 0;
-    text-align: right;
-    white-space: nowrap;
-    flex-shrink: 0;
-}
-
-.stock-link {
-    display: inline-block;
-    text-decoration: none;
-    background: #eef1f4;
-    color: #4b5563;
-    padding: 5px 10px;
-    border-radius: 8px;
-    font-size: 0.8em;
-    font-weight: 700;
-    border: 1px solid #d8dee6;
-    line-height: 1.2;
-}
-
-.stock-link:hover {
-    background: #e3e8ee;
-}
-
-.up {
-    color: #e53935;
-}
-
-.down {
-    color: #1e88e5;
-}
-
-.flat {
-    color: #757575;
-}
-
-.neutral {
-    color: #1e272e;
-}
+        .stock-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 14px;
+            margin-bottom: 8px;
+        }
+        .stock-card {
+            border: 1px solid #dfe5ec;
+            border-radius: 14px;
+            padding: 16px;
+            background: #ffffff;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+        }
+        .stock-header-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+        }
+        .stock-market {
+            display: inline-block;
+            font-size: 0.78em;
+            background: #f1f3f5;
+            color: #5f6b76;
+            padding: 4px 8px;
+            border-radius: 999px;
+            font-weight: bold;
+            width: fit-content;
+        }
+        .stock-top-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+        }
+        .stock-name {
+            font-size: 1.08em;
+            font-weight: bold;
+            color: #1e272e;
+            margin: 0;
+        }
+        .stock-code {
+            font-size: 0.88em;
+            color: #8b95a1;
+            margin: 0;
+            text-align: right;
+        }
+        .stock-middle-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            gap: 12px;
+        }
+        .stock-price {
+            font-size: 1.1em;
+            font-weight: 700;
+            margin: 0;
+            line-height: 1.2;
+            flex-shrink: 0;
+        }
+        .stock-status {
+            font-size: 0.92em;
+            font-weight: 700;
+            margin: 0;
+            text-align: right;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+        .stock-link {
+            display: inline-block;
+            text-decoration: none;
+            background: #eef1f4;
+            color: #4b5563;
+            padding: 5px 10px;
+            border-radius: 8px;
+            font-size: 0.8em;
+            font-weight: 700;
+            border: 1px solid #d8dee6;
+            line-height: 1.2;
+        }
+        .stock-link:hover {
+            background: #e3e8ee;
+        }
+        .up { color: #e53935; }
+        .down { color: #1e88e5; }
+        .flat { color: #757575; }
+        .neutral { color: #1e272e; }
 
         .news-section {
             margin-top: 20px;
@@ -2014,172 +1942,43 @@ html_template = """
             color: #666;
             margin-top: 15px;
         }
-    
-            @media (max-width: 768px) {
-            body {
-                padding: 14px;
-            }
-
-            .container {
-                padding: 16px;
-                border-radius: 10px;
-            }
-
-            h1 {
-                font-size: 1.5em;
-                margin-bottom: 18px;
-            }
-
-            .top-bar {
-                flex-direction: column;
-                align-items: stretch;
-                gap: 10px;
-            }
-
-            .btn-fetch {
-                width: 100%;
-                box-sizing: border-box;
-                text-align: center;
-                padding: 12px 14px;
-            }
-
-            .status-box,
-            .message-box {
-                font-size: 0.9em;
-                line-height: 1.5;
-            }
-
-            .section-title {
-                font-size: 1.05em;
-                margin: 22px 0 10px 0;
-            }
-
-            .stock-grid {
-                grid-template-columns: repeat(2, minmax(0, 1fr));
-                gap: 12px;
-            }
-
-            
-
-            .stock-card {
-                padding: 14px;
-            }
-
-            .stock-header-row,
-            .stock-top-row,
-            .stock-middle-row {
-                flex-direction: column;
-                align-items: flex-start;
-                gap: 8px;
-            }
-
-            .stock-code,
-            .stock-status {
-                text-align: left;
-                white-space: normal;
-            }
-
-            .stock-price {
-                font-size: 1.28em;
-            }
-
-            .stock-link {
-                align-self: flex-start;
-            }
-
-            .search-box {
-                flex-direction: column;
-                align-items: stretch;
-            }
-
-            .search-input,
-            .btn-search,
-            .btn-reset {
-                width: 100%;
-                box-sizing: border-box;
-            }
-
-            .news-item {
-                flex-direction: column;
-                align-items: flex-start;
-            }
-
-            .news-item > div:first-child {
-                width: 100%;
-            }
-
-            .btn-summary {
-                width: 100%;
-                padding: 10px 12px;
-                border-radius: 6px;
-            }
-
-            .list-header {
-                flex-wrap: wrap;
-                line-height: 1.5;
-            }
-
-            .pagination {
-                justify-content: flex-start;
-            }
-
-            .pagination a {
-                padding: 8px 10px;
-            }
-
-            .modal-content {
-                width: 94%;
-                margin: 20px auto;
-                padding: 18px;
-                border-radius: 12px;
-            }
-
-            .modal-header {
-                flex-direction: column;
-                align-items: stretch;
-                padding-right: 30px;
-            }
-
-            .btn-share,
-            .btn-copy {
-                width: 100%;
-                justify-content: center;
-                box-sizing: border-box;
-            }
-
-            #summaryContainer {
-                max-height: 60vh;
-                padding: 14px;
-            }
-        }    
-    @media (max-width: 480px) {
-    .stock-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 10px;
-    }
-
-    .stock-card {
-        padding: 12px;
-    }
-
-    .stock-name {
-        font-size: 0.98em;
-    }
-
-    .stock-price {
-        font-size: 1.18em;
-    }
-
-    .stock-code,
-    .stock-status {
-        font-size: 0.82em;
-    }
-
-    .stock-link {
-        font-size: 0.75em;
-        padding: 4px 8px;
-    }
-}
+        
+        @media (max-width: 768px) {
+            body { padding: 14px; }
+            .container { padding: 16px; border-radius: 10px; }
+            h1 { font-size: 1.5em; margin-bottom: 18px; }
+            .top-bar { flex-direction: column; align-items: stretch; gap: 10px; }
+            .btn-fetch { width: 100%; box-sizing: border-box; text-align: center; padding: 12px 14px; }
+            .status-box, .message-box { font-size: 0.9em; line-height: 1.5; }
+            .section-title { font-size: 1.05em; margin: 22px 0 10px 0; }
+            .stock-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+            .stock-card { padding: 14px; }
+            .stock-header-row, .stock-top-row, .stock-middle-row { flex-direction: column; align-items: flex-start; gap: 8px; }
+            .stock-code, .stock-status { text-align: left; white-space: normal; }
+            .stock-price { font-size: 1.28em; }
+            .stock-link { align-self: flex-start; }
+            .search-box { flex-direction: column; align-items: stretch; }
+            .search-input, .btn-search, .btn-reset { width: 100%; box-sizing: border-box; }
+            .news-item { flex-direction: column; align-items: flex-start; }
+            .news-item > div:first-child { width: 100%; }
+            .btn-summary { width: 100%; padding: 10px 12px; border-radius: 6px; }
+            .list-header { flex-wrap: wrap; line-height: 1.5; }
+            .pagination { justify-content: flex-start; }
+            .pagination a { padding: 8px 10px; }
+            .modal-content { width: 94%; margin: 20px auto; padding: 18px; border-radius: 12px; }
+            .modal-header { flex-direction: column; align-items: stretch; padding-right: 30px; }
+            .btn-share, .btn-copy { width: 100%; justify-content: center; box-sizing: border-box; }
+            #summaryContainer { max-height: 60vh; padding: 14px; }
+        }
+        
+        @media (max-width: 480px) {
+            .stock-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+            .stock-card { padding: 12px; }
+            .stock-name { font-size: 0.98em; }
+            .stock-price { font-size: 1.18em; }
+            .stock-code, .stock-status { font-size: 0.82em; }
+            .stock-link { font-size: 0.75em; padding: 4px 8px; }
+        }
     </style>
 </head>
 <body>
@@ -2202,131 +2001,120 @@ html_template = """
             자동 수집은 마지막 수집 후 <strong>{{ auto_fetch_interval }}분</strong>이 지나야 다시 실행됩니다.
         </div>
 
-<div class="section-title">📊 시장 정보</div>
+        <div class="section-title">📊 시장 정보</div>
 
-<div class="market-section">
-    <div class="section-title">대표</div>
-    <div class="stock-grid">
-        {% for item in representative_cards %}
-        <div class="stock-card">
-            <div class="stock-header-row">
-                <div class="stock-market">{{ item.market }}</div>
-                <a href="{{ item.link }}" target="_blank" class="stock-link">바로가기</a>
-            </div>
-
-            <div class="stock-top-row">
-                <div class="stock-name">{{ item.name }}</div>
-                <div class="stock-code">지수코드: {{ item.code }}</div>
-            </div>
-
-            <div class="stock-middle-row">
-                <div class="stock-price {{ item.change_class }}">{{ item.price }}</div>
-                <div class="stock-status {{ item.change_class }}">{{ item.status }}</div>
-            </div>
-        </div>
-        {% endfor %}
-    </div>
-</div>
-
-<div class="market-section">
-    <div class="section-title">국내</div>
-    <div class="stock-grid">
-        {% for item in domestic_stock_cards %}
-        <div class="stock-card">
-            <div class="stock-header-row">
-                <div class="stock-market">{{ item.market }}</div>
-                <a href="{{ item.link }}" target="_blank" class="stock-link">바로가기</a>
-            </div>
-
-            <div class="stock-top-row">
-                <div class="stock-name">{{ item.name }}</div>
-                <div class="stock-code">코드: {{ item.code }}</div>
-            </div>
-
-            <div class="stock-middle-row">
-                <div class="stock-price {{ item.change_class }}">{{ item.price }}</div>
-                <div class="stock-status {{ item.change_class }}">{{ item.status }}</div>
+        <div class="market-section">
+            <div class="section-title">대표</div>
+            <div class="stock-grid">
+                {% for item in representative_cards %}
+                <div class="stock-card">
+                    <div class="stock-header-row">
+                        <div class="stock-market">{{ item.market }}</div>
+                        <a href="{{ item.link }}" target="_blank" class="stock-link">바로가기</a>
+                    </div>
+                    <div class="stock-top-row">
+                        <div class="stock-name">{{ item.name }}</div>
+                        <div class="stock-code">지수코드: {{ item.code }}</div>
+                    </div>
+                    <div class="stock-middle-row">
+                        <div class="stock-price {{ item.change_class }}">{{ item.price }}</div>
+                        <div class="stock-status {{ item.change_class }}">{{ item.status }}</div>
+                    </div>
+                </div>
+                {% endfor %}
             </div>
         </div>
-        {% endfor %}
-    </div>
-</div>
 
-<div class="market-section">
-    <div class="section-title">해외</div>
-    <div class="stock-grid">
-        {% for item in overseas_stock_cards %}
-        <div class="stock-card">
-            <div class="stock-header-row">
-                <div class="stock-market">{{ item.market }}</div>
-                <a href="{{ item.link }}" target="_blank" class="stock-link">바로가기</a>
-            </div>
-
-            <div class="stock-top-row">
-                <div class="stock-name">{{ item.name }}</div>
-                <div class="stock-code">코드: {{ item.code }}</div>
-            </div>
-
-            <div class="stock-middle-row">
-                <div class="stock-price {{ item.change_class }}">{{ item.price }}</div>
-                <div class="stock-status {{ item.change_class }}">{{ item.status }}</div>
+        <div class="market-section">
+            <div class="section-title">국내</div>
+            <div class="stock-grid">
+                {% for item in domestic_stock_cards %}
+                <div class="stock-card">
+                    <div class="stock-header-row">
+                        <div class="stock-market">{{ item.market }}</div>
+                        <a href="{{ item.link }}" target="_blank" class="stock-link">바로가기</a>
+                    </div>
+                    <div class="stock-top-row">
+                        <div class="stock-name">{{ item.name }}</div>
+                        <div class="stock-code">코드: {{ item.code }}</div>
+                    </div>
+                    <div class="stock-middle-row">
+                        <div class="stock-price {{ item.change_class }}">{{ item.price }}</div>
+                        <div class="stock-status {{ item.change_class }}">{{ item.status }}</div>
+                    </div>
+                </div>
+                {% endfor %}
             </div>
         </div>
-        {% endfor %}
-    </div>
-</div>
 
-<div class="market-section">
-    <div class="section-title">기타</div>
-    <div class="stock-grid">
-        {% for item in extra_market_cards %}
-        <div class="stock-card">
-            <div class="stock-header-row">
-                <div class="stock-market">{{ item.market }}</div>
-                <a href="{{ item.link }}" target="_blank" class="stock-link">바로가기</a>
-            </div>
-
-            <div class="stock-top-row">
-                <div class="stock-name">{{ item.name }}</div>
-                <div class="stock-code">코드: {{ item.code }}</div>
-            </div>
-
-            <div class="stock-middle-row">
-                <div class="stock-price {{ item.change_class }}">{{ item.price }}</div>
-                <div class="stock-status {{ item.change_class }}">{{ item.status }}</div>
+        <div class="market-section">
+            <div class="section-title">해외</div>
+            <div class="stock-grid">
+                {% for item in overseas_stock_cards %}
+                <div class="stock-card">
+                    <div class="stock-header-row">
+                        <div class="stock-market">{{ item.market }}</div>
+                        <a href="{{ item.link }}" target="_blank" class="stock-link">바로가기</a>
+                    </div>
+                    <div class="stock-top-row">
+                        <div class="stock-name">{{ item.name }}</div>
+                        <div class="stock-code">코드: {{ item.code }}</div>
+                    </div>
+                    <div class="stock-middle-row">
+                        <div class="stock-price {{ item.change_class }}">{{ item.price }}</div>
+                        <div class="stock-status {{ item.change_class }}">{{ item.status }}</div>
+                    </div>
+                </div>
+                {% endfor %}
             </div>
         </div>
-        {% endfor %}
-    </div>
-</div>
 
-<div class="market-section">
-    <div class="section-title">금리</div>
-    <div class="stock-grid">
-        {% for item in interest_rate_cards %}
-        <div class="stock-card">
-            <div class="stock-header-row">
-                <div class="stock-market">{{ item.market }}</div>
-                <a href="{{ item.link }}" target="_blank" class="stock-link">바로가기</a>
-            </div>
-
-            <div class="stock-top-row">
-                <div class="stock-name">{{ item.name }}</div>
-                <div class="stock-code">출처: {{ item.code }}</div>
-            </div>
-
-            <div class="stock-middle-row">
-                <div class="stock-price {{ item.change_class }}">{{ item.price }}</div>
-                <div class="stock-status {{ item.change_class }}">{{ item.status }}</div>
+        <div class="market-section">
+            <div class="section-title">기타</div>
+            <div class="stock-grid">
+                {% for item in extra_market_cards %}
+                <div class="stock-card">
+                    <div class="stock-header-row">
+                        <div class="stock-market">{{ item.market }}</div>
+                        <a href="{{ item.link }}" target="_blank" class="stock-link">바로가기</a>
+                    </div>
+                    <div class="stock-top-row">
+                        <div class="stock-name">{{ item.name }}</div>
+                        <div class="stock-code">코드: {{ item.code }}</div>
+                    </div>
+                    <div class="stock-middle-row">
+                        <div class="stock-price {{ item.change_class }}">{{ item.price }}</div>
+                        <div class="stock-status {{ item.change_class }}">{{ item.status }}</div>
+                    </div>
+                </div>
+                {% endfor %}
             </div>
         </div>
-        {% endfor %}
-    </div>
-</div>
+
+        <div class="market-section">
+            <div class="section-title">금리</div>
+            <div class="stock-grid">
+                {% for item in interest_rate_cards %}
+                <div class="stock-card">
+                    <div class="stock-header-row">
+                        <div class="stock-market">{{ item.market }}</div>
+                        <a href="{{ item.link }}" target="_blank" class="stock-link">바로가기</a>
+                    </div>
+                    <div class="stock-top-row">
+                        <div class="stock-name">{{ item.name }}</div>
+                        <div class="stock-code">출처: {{ item.code }}</div>
+                    </div>
+                    <div class="stock-middle-row">
+                        <div class="stock-price {{ item.change_class }}">{{ item.price }}</div>
+                        <div class="stock-status {{ item.change_class }}">{{ item.status }}</div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
 
         <div class="news-section">
             <div class="section-title">📰 안장 뉴스 클리핑</div>
-
             <form action="/" method="GET" class="search-box">
                 <input
                     type="text"
@@ -2403,13 +2191,11 @@ html_template = """
     <div id="summaryModal">
         <div class="modal-content">
             <span class="close-btn" onclick="closeModal()">&times;</span>
-
             <div class="modal-header">
                 <h2 style="color: #00c73c; margin: 0; font-size: 1.4em;">📌 헤드라인 요약</h2>
                 <button class="btn-share" onclick="shareToKakao()">💬 카톡 공유</button>
                 <button class="btn-copy" onclick="copyToClipboard()">📋 내용 복사</button>
             </div>
-
             <div id="summaryContainer">
                 <div id="summaryText"></div>
                 <div class="article-url-box">
@@ -2431,7 +2217,6 @@ html_template = """
         let currentText = '';
         let currentLink = '';
         let currentTitle = '';
-
         const KAKAO_KEY = '66af72b8c8cd444e12591ec5d9dc9b5c';
 
         if (typeof Kakao !== 'undefined' && !Kakao.isInitialized()) {
@@ -2442,13 +2227,10 @@ html_template = """
             currentText = text;
             currentLink = link;
             currentTitle = title;
-
             document.getElementById('summaryText').innerText = text;
-
             const linkElem = document.getElementById('articleLink');
             linkElem.innerText = link;
             linkElem.href = link;
-
             document.getElementById('summaryModal').style.display = 'block';
         }
 
@@ -2457,30 +2239,22 @@ html_template = """
         }
 
         function copyToClipboard() {
-            const fullContent =
-                currentText +
-                "\\n\\n🔗 기사보기: " + currentLink;
-
+            const fullContent = currentText + "\\n\\n🔗 기사보기: " + currentLink;
             const t = document.createElement("textarea");
             t.value = fullContent;
             document.body.appendChild(t);
             t.select();
             document.execCommand('copy');
             document.body.removeChild(t);
-
             alert('내용과 링크가 복사되었습니다!');
         }
 
         function shareToKakao() {
-            const shareText =
-                currentText +
-                "\\n\\n🔗 기사보기: " + currentLink;
-
+            const shareText = currentText + "\\n\\n🔗 기사보기: " + currentLink;
             if (typeof Kakao === 'undefined') {
                 alert('카카오 SDK를 불러오지 못했습니다.');
                 return;
             }
-
             Kakao.Share.sendDefault({
                 objectType: 'text',
                 text: shareText,
@@ -2502,7 +2276,6 @@ html_template = """
 </html>
 """
 
-
 if __name__ == "__main__":
     init_db()
-    app.run(debug=False, use_reloader=False, port=5001)
+    app.run(debug=True, use_reloader=False, port=5001)
