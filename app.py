@@ -7,6 +7,7 @@ from pathlib import Path
 from datetime import datetime, timedelta
 from urllib.parse import quote
 import re
+import os  #
 
 app = Flask(__name__)
 
@@ -2276,6 +2277,9 @@ html_template = """
 </html>
 """
 
+init_db()  # 서버 환경에서도 무조건 DB를 만들도록 밖으로 빼냅니다!
+
 if __name__ == "__main__":
-    init_db()
-    app.run(debug=True, use_reloader=False, port=5001)
+    # 렌더 서버가 요구하는 접속 설정에 맞춥니다.
+    port = int(os.environ.get("PORT", 5001))
+    app.run(host="0.0.0.0", port=port, debug=False)
